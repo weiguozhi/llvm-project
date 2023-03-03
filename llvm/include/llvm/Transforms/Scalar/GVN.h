@@ -18,6 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstrTypes.h"
@@ -255,6 +256,11 @@ private:
   // of BlockRPONumber prior to accessing the contents of BlockRPONumber.
   bool InvalidBlockRPONumbers = true;
 
+  // This set contains BBs known have work to do. At the end of an iteration on
+  // a function we can process these BBs immediately, so we can potentially save
+  // 1 iteration on the complete function.
+  SmallSet<BasicBlock *, 16> AdditionalWorkSet;
+
   using LoadDepVect = SmallVector<NonLocalDepResult, 64>;
   using AvailValInBlkVect = SmallVector<gvn::AvailableValueInBlock, 64>;
   using UnavailBlkVect = SmallVector<BasicBlock *, 64>;
@@ -329,6 +335,11 @@ private:
                                AvailValInBlkVect &ValuesPerBlock,
                                UnavailBlkVect &UnavailableBlocks);
 
+  /// Given a critical edge from Pred to LoadBB, find a load instruction
+  /// which is identical to Load from another successor of Pred.
+  LoadInst *findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
+                                    LoadInst *Load);
+
   bool PerformLoadPRE(LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
                       UnavailBlkVect &UnavailableBlocks);
 
@@ -342,7 +353,8 @@ private:
   /// AvailableLoads (connected by Phis if needed).
   void eliminatePartiallyRedundantLoad(
       LoadInst *Load, AvailValInBlkVect &ValuesPerBlock,
-      MapVector<BasicBlock *, Value *> &AvailableLoads);
+      MapVector<BasicBlock *, Value *> &AvailableLoads,
+      MapVector<BasicBlock *, LoadInst *> *CriticalEdgePredAndLoad);
 
   // Other helper routines
   bool processInstruction(Instruction *I);

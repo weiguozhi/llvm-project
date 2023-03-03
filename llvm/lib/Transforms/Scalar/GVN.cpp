@@ -1391,7 +1391,6 @@ LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
   if (!SuccBB->getSinglePredecessor())
     return nullptr;
 
-  int NumInsts = 2;
   for (Instruction &Inst : *SuccBB) {
     if (Inst.isIdenticalTo(Load)) {
       MemDepResult Dep = MD->getDependency(&Inst);
@@ -1409,9 +1408,6 @@ LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
       if (isModSet(getAliasAnalysis()->getModRefInfo(&Inst, Loc)))
         return nullptr;
     }
-
-    if (--NumInsts == 0)
-      return nullptr;
   }
 
   return nullptr;

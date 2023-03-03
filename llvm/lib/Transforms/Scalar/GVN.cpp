@@ -1401,13 +1401,6 @@ LoadInst *GVNPass::findLoadToHoistIntoPred(BasicBlock *Pred, BasicBlock *LoadBB,
 
       return nullptr;
     }
-
-    // If Inst clobbers Load memory, we can exit early.
-    if (Inst.mayWriteToMemory()) {
-      MemoryLocation Loc = MemoryLocation::get(Load);
-      if (isModSet(getAliasAnalysis()->getModRefInfo(&Inst, Loc)))
-        return nullptr;
-    }
   }
 
   return nullptr;

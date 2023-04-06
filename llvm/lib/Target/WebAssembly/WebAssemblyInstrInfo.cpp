@@ -40,7 +40,7 @@ WebAssemblyInstrInfo::WebAssemblyInstrInfo(const WebAssemblySubtarget &STI)
       RI(STI.getTargetTriple()) {}
 
 bool WebAssemblyInstrInfo::isReallyTriviallyReMaterializable(
-    const MachineInstr &MI) const {
+    const MachineInstr &MI, bool NonTrivial) const {
   switch (MI.getOpcode()) {
   case WebAssembly::CONST_I32:
   case WebAssembly::CONST_I64:

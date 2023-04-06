@@ -525,7 +525,8 @@ public:
                              unsigned &SubIdx) const override;
   unsigned isLoadFromStackSlot(const MachineInstr &MI,
                                int &FrameIndex) const override;
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
+                                         bool NonTrivial) const override;
   unsigned isStoreToStackSlot(const MachineInstr &MI,
                               int &FrameIndex) const override;
 

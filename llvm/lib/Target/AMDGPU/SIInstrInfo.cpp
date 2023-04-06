@@ -106,7 +106,7 @@ static bool nodesHaveSameOperandValue(SDNode *N0, SDNode* N1, unsigned OpName) {
 }
 
 bool SIInstrInfo::isReallyTriviallyReMaterializable(
-    const MachineInstr &MI) const {
+    const MachineInstr &MI, bool NonTrivial) const {
   if (isVOP1(MI) || isVOP2(MI) || isVOP3(MI) || isSDWA(MI) || isSALU(MI)) {
     // Normally VALU use of exec would block the rematerialization, but that
     // is OK in this case to have an implicit exec read as all VALU do.

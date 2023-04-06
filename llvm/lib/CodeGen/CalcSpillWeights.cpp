@@ -10,6 +10,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/LiveInterval.h"
 #include "llvm/CodeGen/LiveIntervals.h"
+#include "llvm/CodeGen/LiveRangeEdit.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
@@ -76,6 +77,25 @@ Register VirtRegAuxInfo::copyHint(const MachineInstr *MI, unsigned Reg,
   return 0;
 }
 
+// Check all ueses of LI, if all operands of the instruction defining the
+// register's value are available, returns true.
+bool VirtRegAuxInfo::areAllUsesRematerializable(const LiveInterval &LI,
+                                                const LiveIntervals &LIS,
+                                                const MachineRegisterInfo &MRI) {
+  Register Reg = LI.reg();
+  for (MachineInstr &UseMI : MRI.use_instructions(Reg)) {
+    SlotIndex UseIdx = LIS.getInstructionIndex(UseMI);
+    const VNInfo *VNI = LI.getVNInfoAt(UseIdx);
+    // FIXME: trace copies introduced by live range splitting.
+    MachineInstr *DefMI = LIS.getInstructionFromIndex(VNI->def);
+
+    if (!LiveRangeEdit::allUsesAvailableAt(DefMI, VNI->def, UseIdx, LIS, MRI))
+      return false;
+  }
+
+  return true;
+}
+
 // Check if all values in LI are rematerializable
 bool VirtRegAuxInfo::isRematerializable(const LiveInterval &LI,
                                         const LiveIntervals &LIS,
@@ -124,6 +144,12 @@ bool VirtRegAuxInfo::isRematerializable(const LiveInterval &LI,
     if (!TII.isTriviallyReMaterializable(*MI))
       return false;
   }
+
+  // For non-trivial rematerialization we also need to check all uses.
+  if (VRM.getMachineFunction().getNonTrivialRemat() &&
+      !areAllUsesRematerializable(LI, LIS, VRM.getRegInfo()))
+    return false;
+
   return true;
 }
 

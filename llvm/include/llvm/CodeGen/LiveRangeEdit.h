@@ -90,6 +90,10 @@ private:
   /// live range trimmed or entirely removed.
   SmallPtrSet<const VNInfo *, 4> Rematted;
 
+  /// These registers got more uses because of non-trivial rematerialization.
+  /// Their cost need to be recomputed.
+  SmallSet<Register, 32> RecomputeSet;
+
   /// scanRemattable - Identify the Parent values that may rematerialize.
   void scanRemattable();
 
@@ -113,6 +117,9 @@ private:
 
   /// Create a new empty interval based on OldReg.
   LiveInterval &createEmptyIntervalFrom(Register OldReg, bool createSubRanges);
+
+  /// Push used registers from rematerialized instruction MI into RecomputeSet.
+  void collectUsedRegs(MachineInstr *MI);
 
 public:
   /// Create a LiveRangeEdit for breaking down parent into smaller pieces.
@@ -197,7 +204,13 @@ public:
   /// allUsesAvailableAt - Return true if all registers used by OrigMI at
   /// OrigIdx are also available with the same value at UseIdx.
   bool allUsesAvailableAt(const MachineInstr *OrigMI, SlotIndex OrigIdx,
-                          SlotIndex UseIdx) const;
+                          SlotIndex UseIdx) const {
+    return allUsesAvailableAt(OrigMI, OrigIdx, UseIdx, LIS, MRI);
+  }
+  static
+  bool allUsesAvailableAt(const MachineInstr *OrigMI, SlotIndex OrigIdx,
+                          SlotIndex UseIdx, const LiveIntervals &LIS,
+                          const MachineRegisterInfo &MRI);
 
   /// canRematerializeAt - Determine if ParentVNI can be rematerialized at
   /// UseIdx. It is assumed that parent_.getVNINfoAt(UseIdx) == ParentVNI.

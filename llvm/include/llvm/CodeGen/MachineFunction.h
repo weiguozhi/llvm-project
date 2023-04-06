@@ -332,6 +332,9 @@ class LLVM_EXTERNAL_VISIBILITY MachineFunction {
   /// True if any WinCFI instruction have been emitted in this function.
   bool HasWinCFI = false;
 
+  /// True when non-trivial rematerialization is enabled.
+  bool NonTrivialRemat = false;
+
   /// Current high-level properties of the IR of the function (e.g. is in SSA
   /// form or whether registers have been allocated)
   MachineFunctionProperties Properties;
@@ -1268,6 +1271,10 @@ public:
 
   unsigned getNewDebugInstrNum() {
     return ++DebugInstrNumberingCount;
+  }
+
+  bool getNonTrivialRemat() const {
+    return NonTrivialRemat;
   }
 };
 

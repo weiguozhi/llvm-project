@@ -6722,7 +6722,7 @@ bool ARMBaseInstrInfo::shouldOutlineFromFunctionByDefault(
 }
 
 bool ARMBaseInstrInfo::isReallyTriviallyReMaterializable(
-    const MachineInstr &MI) const {
+    const MachineInstr &MI, bool NonTrivial) const {
   // Try hard to rematerialize any VCTPs because if we spill P0, it will block
   // the tail predication conversion. This means that the element count
   // register has to be live for longer, but that has to be better than

@@ -43,7 +43,8 @@ public:
 
   const WebAssemblyRegisterInfo &getRegisterInfo() const { return RI; }
 
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
+                                         bool NonTrivial) const override;
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                    const DebugLoc &DL, MCRegister DestReg, MCRegister SrcReg,

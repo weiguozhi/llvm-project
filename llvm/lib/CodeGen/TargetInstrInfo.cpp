@@ -1064,12 +1064,13 @@ MachineTraceStrategy TargetInstrInfo::getMachineCombinerTraceStrategy() const {
 }
 
 bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
-    const MachineInstr &MI) const {
+    const MachineInstr &MI, bool NonTrivial) const {
   const MachineFunction &MF = *MI.getMF();
   const MachineRegisterInfo &MRI = MF.getRegInfo();
 
   // Remat clients assume operand 0 is the defined register.
-  if (!MI.getNumOperands() || !MI.getOperand(0).isReg())
+  if (!MI.getNumOperands() || !MI.getOperand(0).isReg() ||
+      MI.getOperand(0).isTied())
     return false;
   Register DefReg = MI.getOperand(0).getReg();
 
@@ -1134,7 +1135,7 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
     // Don't allow any virtual-register uses. Rematting an instruction with
     // virtual register uses would length the live ranges of the uses, which
     // is not necessarily a good idea, certainly not "trivial".
-    if (MO.isUse())
+    if (!NonTrivial && MO.isUse())
       return false;
   }
 

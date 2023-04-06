@@ -123,16 +123,21 @@ public:
                                          const TargetRegisterInfo *TRI,
                                          const MachineFunction &MF) const;
 
-  /// Return true if the instruction is trivially rematerializable, meaning it
-  /// has no side effects and requires no operands that aren't always available.
-  /// This means the only allowed uses are constants and unallocatable physical
-  /// registers so that the instructions result is independent of the place
-  /// in the function.
+  /// Return true if the instruction is rematerializable, meaning it has no side
+  /// effects. It can be either trivially rematerializable or non-trivially
+  /// rematerializable.
+  /// Trivial rematerialization requires no operands that aren't always
+  /// available. This means the only allowed uses are constants and
+  /// unallocatable physical registers so that the instructions result is
+  /// independent of the place in the function.
+  /// Non-trivial rematerialization allows virtual register operands. But all of
+  /// the operands must be available at the use site of MI dest register.
   bool isTriviallyReMaterializable(const MachineInstr &MI) const {
+    bool NonTrivialRemat = MI.getMF()->getNonTrivialRemat();
     return MI.getOpcode() == TargetOpcode::IMPLICIT_DEF ||
            (MI.getDesc().isRematerializable() &&
-            (isReallyTriviallyReMaterializable(MI) ||
-             isReallyTriviallyReMaterializableGeneric(MI)));
+            (isReallyTriviallyReMaterializable(MI, NonTrivialRemat) ||
+             isReallyTriviallyReMaterializableGeneric(MI, NonTrivialRemat)));
   }
 
   /// Given \p MO is a PhysReg use return if it can be ignored for the purpose
@@ -144,12 +149,12 @@ public:
 protected:
   /// For instructions with opcodes for which the M_REMATERIALIZABLE flag is
   /// set, this hook lets the target specify whether the instruction is actually
-  /// trivially rematerializable, taking into consideration its operands. This
-  /// predicate must return false if the instruction has any side effects other
-  /// than producing a value, or if it requres any address registers that are
-  /// not always available.
+  /// rematerializable, taking into consideration its operands. This predicate
+  /// must return false if the instruction has any side effects other than
+  /// producing a value.
   /// Requirements must be check as stated in isTriviallyReMaterializable() .
-  virtual bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const {
+  virtual bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
+                                                 bool NonTrivial) const {
     return false;
   }
 
@@ -191,7 +196,8 @@ private:
   /// set and the target hook isReallyTriviallyReMaterializable returns false,
   /// this function does target-independent tests to determine if the
   /// instruction is really trivially rematerializable.
-  bool isReallyTriviallyReMaterializableGeneric(const MachineInstr &MI) const;
+  bool isReallyTriviallyReMaterializableGeneric(const MachineInstr &MI,
+                                                bool NonTrivial) const;
 
 public:
   /// These methods return the opcode of the frame setup/destroy instructions

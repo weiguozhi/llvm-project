@@ -1478,7 +1478,11 @@ bool PeepholeOptimizer::foldRedundantCopy(MachineInstr &MI) {
     return false;
   }
 
-  MachineInstr *PrevCopy = CopySrcMIs.find(SrcPair)->second;
+  MachineInstr *PrevCopy = CopyMIs.find(SrcPair)->second;
+  // A COPY instruction can be deleted or changed by other optimizations.
+  // Check if the previous COPY instruction is existing and still a COPY.
+  if (!LocalMIs.count(PrevCopy) || !PrevCopy->isCopy())
+    return false;
 
   assert(SrcPair.SubReg == PrevCopy->getOperand(1).getSubReg() &&
          "Unexpected mismatching subreg!");

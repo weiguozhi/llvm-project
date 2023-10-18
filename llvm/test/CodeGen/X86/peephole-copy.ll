@@ -63,5 +63,22 @@ loop2.body:
 exit:
   store i32 %vq2, ptr %p3, align 4
   store i32 %conv.us, ptr %p2, align 4
+; RUN: llc < %s -mtriple=i686-- | FileCheck %s
+
+; In peephole optimization the modified COPY instruction should not cause
+; compiler failure.
+
+define dso_local void @c() {
+; CHECK-LABEL: c:
+; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    movl $512, %eax # imm = 0x200
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    #APP
+; CHECK-NEXT:    #NO_APP
+; CHECK-NEXT:    retl
+entry:
+  tail call void asm sideeffect "", "q,~{dirflag},~{fpsr},~{flags}"(i32 512)
+  tail call void asm sideeffect "", "q,~{dirflag},~{fpsr},~{flags}"(i32 512)
   ret void
 }

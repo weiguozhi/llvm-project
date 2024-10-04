@@ -346,7 +346,7 @@ public:
 #endif // NDEBUG
 
   /// Count of predecessors of any block within the chain which have not
-  /// yet been scheduled.  In general, we will delay scheduling this chain
+  /// yet been scheduled. In general, we will delay scheduling this chain
   /// until those predecessors are scheduled (or we find a sufficiently good
   /// reason to override this heuristic.)  Note that when forming loop chains,
   /// blocks outside the loop are ignored and treated as if they were already

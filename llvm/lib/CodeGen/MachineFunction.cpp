@@ -82,6 +82,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "codegen"
 
+static cl::opt<bool>
+NonTrivialRematerialization("non-trivial-rematerialization",
+                            cl::desc("Non-trivial rematerialization"),
+                            cl::init(false), cl::Hidden);
+
 static cl::opt<unsigned> AlignAllFunctions(
     "align-all-functions",
     cl::desc("Force the alignment of all functions in log2 format (e.g. 4 "
@@ -167,6 +172,11 @@ MachineFunction::MachineFunction(Function &F, const LLVMTargetMachine &Target,
     : F(F), Target(Target), STI(&STI), Ctx(Ctx) {
   FunctionNumber = FunctionNum;
   init();
+
+  if (NonTrivialRematerialization.getNumOccurrences() > 0)
+    NonTrivialRemat = NonTrivialRematerialization;
+  else
+    NonTrivialRemat = STI.enableNonTrivialRematerialization();
 }
 
 void MachineFunction::handleInsertion(MachineInstr &MI) {

@@ -53,6 +53,10 @@ bool TargetSubtargetInfo::enablePostRAMachineScheduler() const {
   return enableMachineScheduler() && enablePostRAScheduler();
 }
 
+bool TargetSubtargetInfo::enableNonTrivialRematerialization() const {
+  return false;
+}
+
 bool TargetSubtargetInfo::useAA() const {
   return false;
 }

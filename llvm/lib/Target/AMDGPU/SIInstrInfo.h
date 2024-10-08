@@ -230,7 +230,8 @@ public:
     return ST;
   }
 
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
+                                         bool NonTrivial) const override;
 
   bool isIgnorableUse(const MachineOperand &MO) const override;
 

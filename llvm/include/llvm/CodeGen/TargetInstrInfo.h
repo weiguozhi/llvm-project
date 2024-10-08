@@ -146,10 +146,11 @@ public:
   /// Non-trivial rematerialization allows virtual register operands. But all of
   /// the operands must be available at the use site of MI dest register.
   bool isTriviallyReMaterializable(const MachineInstr &MI) const {
+    bool NonTrivialRemat = MI.getMF()->getNonTrivialRemat();
     return (MI.getOpcode() == TargetOpcode::IMPLICIT_DEF &&
             MI.getNumOperands() == 1) ||
            (MI.getDesc().isRematerializable() &&
-            isReallyTriviallyReMaterializable(MI));
+            isReallyTriviallyReMaterializable(MI, NonTrivialRemat));
   }
 
   /// Given \p MO is a PhysReg use return if it can be ignored for the purpose
@@ -169,7 +170,8 @@ protected:
   /// rematerializable, taking into consideration its operands. This predicate
   /// must return false if the instruction has any side effects other than
   /// producing a value.
-  virtual bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const;
+  virtual bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
+                                                 bool NonTrivial) const;
 
   /// This method commutes the operands of the given machine instruction MI.
   /// The operands to be commuted are specified by their indices OpIdx1 and

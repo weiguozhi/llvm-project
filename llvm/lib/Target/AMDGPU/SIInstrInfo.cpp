@@ -122,7 +122,7 @@ static bool canRemat(const MachineInstr &MI) {
 }
 
 bool SIInstrInfo::isReallyTriviallyReMaterializable(
-    const MachineInstr &MI) const {
+    const MachineInstr &MI, bool NonTrivial) const {
 
   if (canRemat(MI)) {
     // Normally VALU use of exec would block the rematerialization, but that
@@ -142,7 +142,7 @@ bool SIInstrInfo::isReallyTriviallyReMaterializable(
       return true;
   }
 
-  return TargetInstrInfo::isReallyTriviallyReMaterializable(MI);
+  return TargetInstrInfo::isReallyTriviallyReMaterializable(MI, NonTrivial);
 }
 
 // Returns true if the scalar result of a VALU instruction depends on exec.

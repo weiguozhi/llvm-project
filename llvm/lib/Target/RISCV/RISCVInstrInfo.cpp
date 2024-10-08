@@ -171,7 +171,7 @@ Register RISCVInstrInfo::isStoreToStackSlot(const MachineInstr &MI,
 }
 
 bool RISCVInstrInfo::isReallyTriviallyReMaterializable(
-    const MachineInstr &MI) const {
+    const MachineInstr &MI, bool NonTrivial) const {
   switch (RISCV::getRVVMCOpcode(MI.getOpcode())) {
   case RISCV::VMV_V_X:
   case RISCV::VFMV_V_F:
@@ -189,7 +189,7 @@ bool RISCVInstrInfo::isReallyTriviallyReMaterializable(
   default:
     break;
   }
-  return TargetInstrInfo::isReallyTriviallyReMaterializable(MI);
+  return TargetInstrInfo::isReallyTriviallyReMaterializable(MI, NonTrivial);
 }
 
 static bool forwardCopyWillClobberTuple(unsigned DstReg, unsigned SrcReg,

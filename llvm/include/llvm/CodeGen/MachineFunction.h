@@ -1390,7 +1390,7 @@ public:
     return ++DebugInstrNumberingCount;
   }
 
-  bool getNonTrivialRemat() {
+  bool getNonTrivialRemat() const {
     return NonTrivialRemat;
   }
 };

@@ -76,7 +76,8 @@ public:
   Register isStoreToStackSlot(const MachineInstr &MI, int &FrameIndex,
                               unsigned &MemBytes) const override;
 
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
+                                         bool NonTrivial) const override;
 
   void copyPhysRegVector(MachineBasicBlock &MBB,
                          MachineBasicBlock::iterator MBBI, const DebugLoc &DL,

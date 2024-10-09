@@ -29,6 +29,14 @@ STATISTIC(NumDCEFoldedLoads,    "Number of single use loads folded after DCE");
 STATISTIC(NumFracRanges,        "Number of live ranges fractured by DCE");
 STATISTIC(NumReMaterialization, "Number of instructions rematerialized");
 
+// For non-trivial rematerialization, if an operand register is splited, spilled
+// or rematerialized, the defined register may be changed to not
+// rematerializable, so its cost may be changed.
+static cl::opt<bool>
+RecomputeCost("recompute-reg-cost", cl::init(true), cl::Hidden,
+              cl::desc("Recompute a register's spill cost if its operand "
+                       "register is splited, spilled or rematerialized."));
+
 void LiveRangeEdit::Delegate::anchor() { }
 
 LiveInterval &LiveRangeEdit::createEmptyIntervalFrom(Register OldReg,
@@ -104,8 +112,10 @@ bool LiveRangeEdit::anyRematerializable() {
 /// allUsesAvailableAt - Return true if all registers used by OrigMI at
 /// OrigIdx are also available with the same value at UseIdx.
 bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
-                                       SlotIndex OrigIdx,
-                                       SlotIndex UseIdx) const {
+                                       SlotIndex OrigIdx, SlotIndex UseIdx,
+                                       const LiveIntervals &LIS,
+                                       const MachineRegisterInfo &MRI) {
+  const TargetInstrInfo &TII = *OrigMI->getMF()->getSubtarget().getInstrInfo();
   OrigIdx = OrigIdx.getRegSlot(true);
   UseIdx = std::max(UseIdx, UseIdx.getRegSlot(true));
   for (const MachineOperand &MO : OrigMI->operands()) {
@@ -120,7 +130,7 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
       return false;
     }
 
-    LiveInterval &li = LIS.getInterval(MO.getReg());
+    const LiveInterval &li = LIS.getInterval(MO.getReg());
     const VNInfo *OVNI = li.getVNInfoAt(OrigIdx);
     if (!OVNI)
       continue;
@@ -140,7 +150,7 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
       unsigned SubReg = MO.getSubReg();
       LaneBitmask LM = SubReg ? TRI->getSubRegIndexLaneMask(SubReg)
                               : MRI.getMaxLaneMaskForVReg(MO.getReg());
-      for (LiveInterval::SubRange &SR : li.subranges()) {
+      for (const LiveInterval::SubRange &SR : li.subranges()) {
         if ((SR.LaneMask & LM).none())
           continue;
         if (!SR.liveAt(UseIdx))
@@ -179,6 +189,22 @@ bool LiveRangeEdit::canRematerializeAt(Remat &RM, VNInfo *OrigVNI,
   return true;
 }
 
+void LiveRangeEdit::collectUsedRegs(MachineInstr *MI) {
+  if (!MI->getMF()->getNonTrivialRemat() || !RecomputeCost)
+    return;
+
+  for (const MachineOperand &MO : MI->operands()) {
+    if (!MO.isReg() || !MO.getReg() || !MO.readsReg())
+      continue;
+
+    Register Reg = MO.getReg();
+    if (!Reg || Reg.isPhysical())
+      continue;
+
+    RecomputeSet.insert(Reg);
+  }
+}
+
 SlotIndex LiveRangeEdit::rematerializeAt(MachineBasicBlock &MBB,
                                          MachineBasicBlock::iterator MI,
                                          Register DestReg, const Remat &RM,
@@ -193,6 +219,8 @@ SlotIndex LiveRangeEdit::rematerializeAt(MachineBasicBlock &MBB,
   (*--MI).clearRegisterDeads(DestReg);
   Rematted.insert(RM.ParentVNI);
   ++NumReMaterialization;
+
+  collectUsedRegs(RM.OrigMI);
 
   if (ReplaceIndexMI)
     return LIS.ReplaceMachineInstrInMaps(*ReplaceIndexMI, *MI).getRegSlot();
@@ -504,5 +532,21 @@ void LiveRangeEdit::calculateRegClassAndHint(MachineFunction &MF,
                << TRI->getRegClassName(MRI.getRegClass(LI.reg())) << '\n';
       });
     VRAI.calculateSpillWeightAndHint(LI);
+
+    if (!MF.getNonTrivialRemat() || !RecomputeCost)
+      continue;
+
+    for (MachineInstr &UseMI : MRI.use_instructions(LI.reg())) {
+      if (!TII.isTriviallyReMaterializable(UseMI))
+        continue;
+
+      Register DefReg = UseMI.getOperand(0).getReg();
+      VRAI.calculateSpillWeightAndHint(LIS.getInterval(DefReg));
+    }
   }
+
+  for (Register Reg : RecomputeSet)
+    VRAI.calculateSpillWeightAndHint(LIS.getInterval(Reg));
+
+  RecomputeSet.clear();
 }

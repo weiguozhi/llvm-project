@@ -101,6 +101,12 @@ class VirtRegMap;
                             unsigned NumInstr) {
       return normalizeSpillWeight(UseDefFreq, Size, NumInstr);
     }
+
+    /// Check all ueses of LI, if all operands of the instruction defining the
+    /// register's value are available, returns true.
+    static bool areAllUsesRematerializable(const LiveInterval &LI,
+                                           const LiveIntervals &LIS,
+                                           const MachineRegisterInfo &MRI);
   };
 } // end namespace llvm
 

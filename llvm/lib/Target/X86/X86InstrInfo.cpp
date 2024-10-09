@@ -965,6 +965,19 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(
     }
     break;
   }
+
+  case X86::LZCNT16rr:
+  case X86::LZCNT32rr:
+  case X86::LZCNT64rr:
+  case X86::TZCNT16rr:
+  case X86::TZCNT32rr:
+  case X86::TZCNT64rr:
+  case X86::POPCNT16rr:
+  case X86::POPCNT32rr:
+  case X86::POPCNT64rr:
+    // Let TargetInstrInfo::isReallyTriviallyReMaterializable to do general
+    // operands checking.
+    break;
   }
   return TargetInstrInfo::isReallyTriviallyReMaterializable(MI, NonTrivial);
 }

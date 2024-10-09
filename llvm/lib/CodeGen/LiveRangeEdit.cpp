@@ -118,17 +118,39 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
   const TargetInstrInfo &TII = *OrigMI->getMF()->getSubtarget().getInstrInfo();
   OrigIdx = OrigIdx.getRegSlot(true);
   UseIdx = std::max(UseIdx, UseIdx.getRegSlot(true));
+  MachineInstr *UseMI = LIS.getInstructionFromIndex(UseIdx);
   for (const MachineOperand &MO : OrigMI->operands()) {
-    if (!MO.isReg() || !MO.getReg() || !MO.readsReg())
+    if (!MO.isReg() || !MO.getReg())
       continue;
 
-    // We can't remat physreg uses, unless it is a constant or target wants
-    // to ignore this use.
+    // We check physical register definition for non-trivial rematerialization
+    // only.
+    if (!OrigMI->getMF()->getNonTrivialRemat() && !MO.readsReg())
+      continue;
+
     if (MO.getReg().isPhysical()) {
-      if (MRI.isConstantPhysReg(MO.getReg()) || TII.isIgnorableUse(MO))
-        continue;
-      return false;
+      if (MO.isUse()) {
+        // We can't remat physreg uses, unless it is a constant or target wants
+        // to ignore this use.
+        if (MRI.isConstantPhysReg(MO.getReg()) || TII.isIgnorableUse(MO))
+          continue;
+        return false;
+      } else {
+        // For non-trivial rematerialization, we allow physical reg def. But we
+        // must make sure it is dead at use site.
+        const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
+        if (OrigMI->getMF()->getNonTrivialRemat() &&
+            UseMI->getParent()->computeRegisterLiveness(TRI, MO.getReg(),
+                                                        UseMI) ==
+            MachineBasicBlock::LQR_Dead)
+          continue;
+        else
+          return false;
+      }
     }
+
+    if (!MO.readsReg())
+      continue;
 
     const LiveInterval &li = LIS.getInterval(MO.getReg());
     const VNInfo *OVNI = li.getVNInfoAt(OrigIdx);

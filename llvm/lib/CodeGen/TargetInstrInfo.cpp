@@ -1329,8 +1329,12 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializable(
         if (!MRI.isConstantPhysReg(Reg))
           return false;
       } else {
-        // A physreg def. We can't remat it.
-        return false;
+        // For non-trivial rematerialization, we allow physical reg def. But we
+        // must make sure it is dead at use site.
+        if (NonTrivial)
+          continue;
+        else
+          return false;
       }
       continue;
     }

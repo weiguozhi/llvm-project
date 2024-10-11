@@ -152,10 +152,25 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
     if (!MO.readsReg())
       continue;
 
-    const LiveInterval &li = LIS.getInterval(MO.getReg());
-    const VNInfo *OVNI = li.getVNInfoAt(OrigIdx);
+    const LiveInterval *li = &LIS.getInterval(MO.getReg());
+    const VNInfo *OVNI = li->getVNInfoAt(OrigIdx);
     if (!OVNI)
       continue;
+
+    if (OrigMI->getMF()->getNonTrivialRemat() && MO.isTied()) {
+      assert(OrigMI->getOperand(0).isTied());
+
+      //     v9 = COPY v8
+      //     v9 = NOT v9 (tied to 0)
+      // The COPY and NOT can be rematerialized together. We should check the
+      // availability of v8.
+      MachineInstr *CopyMI = LIS.getInstructionFromIndex(OVNI->def);
+      if (!CopyMI->isFullCopy())
+        return false;
+
+      li = &LIS.getInterval(CopyMI->getOperand(1).getReg());
+      OVNI = li->getVNInfoAt(OVNI->def.getRegSlot(true));
+    }
 
     // Don't allow rematerialization immediately after the original def.
     // It would be incorrect if OrigMI redefines the register.
@@ -163,16 +178,16 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
     if (SlotIndex::isSameInstr(OrigIdx, UseIdx))
       return false;
 
-    if (OVNI != li.getVNInfoAt(UseIdx))
+    if (OVNI != li->getVNInfoAt(UseIdx))
       return false;
 
     // Check that subrange is live at UseIdx.
-    if (li.hasSubRanges()) {
+    if (li->hasSubRanges()) {
       const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
       unsigned SubReg = MO.getSubReg();
       LaneBitmask LM = SubReg ? TRI->getSubRegIndexLaneMask(SubReg)
                               : MRI.getMaxLaneMaskForVReg(MO.getReg());
-      for (const LiveInterval::SubRange &SR : li.subranges()) {
+      for (const LiveInterval::SubRange &SR : li->subranges()) {
         if ((SR.LaneMask & LM).none())
           continue;
         if (!SR.liveAt(UseIdx))
@@ -234,6 +249,28 @@ SlotIndex LiveRangeEdit::rematerializeAt(MachineBasicBlock &MBB,
                                          bool Late, unsigned SubIdx,
                                          MachineInstr *ReplaceIndexMI) {
   assert(RM.OrigMI && "Invalid remat");
+
+  if (RM.OrigMI->getOperand(0).isTied()) {
+    //     v9 = COPY v8
+    //     v9 = NOT v9 (tied to 0)
+    // The COPY and NOT need to be rematerialized together.
+    Register Reg = RM.OrigMI->getOperand(0).getReg();
+    auto &LI = LIS.getInterval(Reg);
+    // VNI can be null if the tied source register is undef, in this case COPY
+    // is not required.
+    if (auto VNI = LI.getVNInfoAt(LIS.getInstructionIndex(*RM.OrigMI))) {
+      MachineInstr *CopyMI = LIS.getInstructionFromIndex(VNI->def);
+      assert(CopyMI->isFullCopy());
+
+      MachineInstr *NewCopy = MBB.getParent()->CloneMachineInstr(CopyMI);
+      NewCopy->substituteRegister(Reg, DestReg, 0, tri);
+      MBB.insert(MI, NewCopy);
+
+      LIS.getSlotIndexes()->insertMachineInstrInMaps(*NewCopy, Late);
+      RecomputeSet.insert(NewCopy->getOperand(1).getReg());
+    }
+  }
+
   TII.reMaterialize(MBB, MI, DestReg, SubIdx, *RM.OrigMI, tri);
   // DestReg of the cloned instruction cannot be Dead. Set isDead of DestReg
   // to false anyway in case the isDead flag of RM.OrigMI's dest register

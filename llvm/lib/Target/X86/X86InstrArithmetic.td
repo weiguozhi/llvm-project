@@ -532,10 +532,12 @@ def NEG8r  : NegOpR_RF<Xi8>;
 def NEG16r : NegOpR_RF<Xi16>, OpSize16;
 def NEG32r : NegOpR_RF<Xi32>, OpSize32;
 def NEG64r : NegOpR_RF<Xi64>;
-def NOT8r  : NotOpR_R<Xi8>;
-def NOT16r : NotOpR_R<Xi16>, OpSize16;
-def NOT32r : NotOpR_R<Xi32>, OpSize32;
-def NOT64r : NotOpR_R<Xi64>;
+let isReMaterializable = 1 in {
+  def NOT8r  : NotOpR_R<Xi8>;
+  def NOT16r : NotOpR_R<Xi16>, OpSize16;
+  def NOT32r : NotOpR_R<Xi32>, OpSize32;
+  def NOT64r : NotOpR_R<Xi64>;
+}
 }
 
 let Predicates = [HasNDD, In64BitMode] in {

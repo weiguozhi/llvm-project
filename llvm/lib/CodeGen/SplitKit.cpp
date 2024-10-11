@@ -613,6 +613,19 @@ VNInfo *SplitEditor::defFromParent(unsigned RegIdx, const VNInfo *ParentVNI,
       Def = Edit->rematerializeAt(MBB, I, Reg, RM, TRI, Late);
       ++NumRemats;
       DidRemat = true;
+
+      // If the rematerialized MI has a tied operand, there must be a
+      // rematerialized COPY instruction before it. Add the segment from COPY
+      // to the new MI.
+      if (MBB.getParent()->getNonTrivialRemat() &&
+          RM.OrigMI->getOperand(0).isTied()) {
+        MachineRegisterInfo::def_instr_iterator I = MRI.def_instr_begin(Reg);
+        if (!I->isFullCopy())
+          I++;
+        SlotIndex CopyIdx = LIS.getInstructionIndex(*I).getRegSlot();
+        VNInfo *VNI = LI->getNextValue(CopyIdx, LIS.getVNInfoAllocator());
+        LI->addSegment(LiveInterval::Segment(CopyIdx, Def.getRegSlot(), VNI));
+      }
     }
   }
   if (!DidRemat) {

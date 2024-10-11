@@ -975,6 +975,10 @@ bool X86InstrInfo::isReallyTriviallyReMaterializable(
   case X86::POPCNT16rr:
   case X86::POPCNT32rr:
   case X86::POPCNT64rr:
+  case X86::NOT8r:
+  case X86::NOT16r:
+  case X86::NOT32r:
+  case X86::NOT64r:
     // Let TargetInstrInfo::isReallyTriviallyReMaterializable to do general
     // operands checking.
     break;

@@ -98,6 +98,45 @@ bool VirtRegAuxInfo::areAllUsesRematerializable(const LiveInterval &LI,
   return true;
 }
 
+// Check if CopyVNI is used as a tied operand in a later instruction. CopyVNI is
+// defined by a COPY instruction, like
+//
+//     v9 = COPY v8
+//     v9 = NOT v9 (tied to 0)
+//
+// The NOT instruction can be rematerialized, and it should not be blocked by
+// the COPY instruction.
+MachineInstr *CopyToTiedOperand(const LiveInterval &LI, const VNInfo *CopyVNI,
+                                const LiveIntervals &LIS) {
+  Register Reg = LI.reg();
+  MachineInstr *CopyMI = LIS.getInstructionFromIndex(CopyVNI->def);
+  assert(CopyMI->isFullCopy());
+
+  for (LiveInterval::const_vni_iterator I = LI.vni_begin(), E = LI.vni_end();
+       I != E; ++I) {
+    const VNInfo *VNI = *I;
+    if (VNI == CopyVNI)
+      continue;
+    if (VNI->isPHIDef())
+      continue;
+
+    MachineInstr *MI = LIS.getInstructionFromIndex(VNI->def);
+    unsigned Tied;
+    if (!MI->isRegTiedToUseOperand(0, &Tied))
+      continue;
+
+    if (MI->getOperand(0).getReg() != Reg ||
+        MI->getOperand(Tied).getReg() != Reg)
+      continue;
+
+    if (LI.Query(LIS.getInstructionIndex(*MI)).valueIn() == CopyVNI)
+      return MI;
+  }
+
+  // The COPY dest is not used as a tied operand.
+  return nullptr;
+}
+
 // Check if all values in LI are rematerializable
 bool VirtRegAuxInfo::isRematerializable(const LiveInterval &LI,
                                         const LiveIntervals &LIS,
@@ -115,6 +154,13 @@ bool VirtRegAuxInfo::isRematerializable(const LiveInterval &LI,
 
     MachineInstr *MI = LIS.getInstructionFromIndex(VNI->def);
     assert(MI && "Dead valno in interval");
+
+    if (MI->isFullCopy() && VRM.getMachineFunction().getNonTrivialRemat()) {
+      // A COPY and a later instruction can be rematerialized together.
+      MachineInstr *UseMI = CopyToTiedOperand(LI, VNI, LIS);
+      if (UseMI && TII.isTriviallyReMaterializable(*UseMI))
+        continue;
+    }
 
     // Trace copies introduced by live range splitting.  The inline
     // spiller can rematerialize through these copies, so the spill

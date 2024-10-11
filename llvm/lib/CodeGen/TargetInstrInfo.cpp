@@ -1277,9 +1277,11 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializable(
   const MachineRegisterInfo &MRI = MF.getRegInfo();
 
   // Remat clients assume operand 0 is the defined register.
-  if (!MI.getNumOperands() || !MI.getOperand(0).isReg() ||
-      MI.getOperand(0).isTied())
+  if (!MI.getNumOperands() || !MI.getOperand(0).isReg())
     return false;
+  if (!NonTrivial && MI.getOperand(0).isTied())
+    return false;
+
   Register DefReg = MI.getOperand(0).getReg();
 
   // A sub-register definition can only be rematerialized if the instruction

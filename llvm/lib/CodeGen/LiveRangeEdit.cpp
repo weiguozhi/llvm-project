@@ -117,8 +117,18 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
                                        const MachineRegisterInfo &MRI) {
   const TargetInstrInfo &TII = *OrigMI->getMF()->getSubtarget().getInstrInfo();
   OrigIdx = OrigIdx.getRegSlot(true);
-  UseIdx = std::max(UseIdx, UseIdx.getRegSlot(true));
+  auto MBB = LIS.getMBBFromIndex(UseIdx);
   MachineInstr *UseMI = LIS.getInstructionFromIndex(UseIdx);
+  MachineBasicBlock::iterator UseIt = UseMI;
+  if (!UseMI) {
+    if (UseIdx < LIS.getInstructionIndex(*MBB->begin()).getBaseIndex())
+      UseIt = MBB->begin();
+    else {
+      UseIt = MBB->end();
+    }
+  }
+  UseIdx = std::max(UseIdx, UseIdx.getRegSlot(true));
+
   for (const MachineOperand &MO : OrigMI->operands()) {
     if (!MO.isReg() || !MO.getReg())
       continue;
@@ -140,8 +150,7 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
         // must make sure it is dead at use site.
         const TargetRegisterInfo *TRI = MRI.getTargetRegisterInfo();
         if (OrigMI->getMF()->getNonTrivialRemat() &&
-            UseMI->getParent()->computeRegisterLiveness(TRI, MO.getReg(),
-                                                        UseMI) ==
+            MBB->computeRegisterLiveness(TRI, MO.getReg(), UseIt) ==
             MachineBasicBlock::LQR_Dead)
           continue;
         else
@@ -166,6 +175,9 @@ bool LiveRangeEdit::allUsesAvailableAt(const MachineInstr *OrigMI,
       // availability of v8.
       MachineInstr *CopyMI = LIS.getInstructionFromIndex(OVNI->def);
       if (!CopyMI->isFullCopy())
+        return false;
+
+      if (CopyMI->getOperand(1).getReg().isPhysical())
         return false;
 
       li = &LIS.getInterval(CopyMI->getOperand(1).getReg());

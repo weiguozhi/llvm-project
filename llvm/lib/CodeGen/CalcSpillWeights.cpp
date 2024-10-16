@@ -88,9 +88,11 @@ bool VirtRegAuxInfo::areAllUsesRematerializable(const LiveInterval &LI,
   for (MachineInstr &UseMI : MRI.use_instructions(Reg)) {
     SlotIndex UseIdx = LIS.getInstructionIndex(UseMI);
     const VNInfo *VNI = LI.getVNInfoAt(UseIdx);
+    if (!VNI)               // Undefined operand can always be rematerialized.
+      continue;
+
     // FIXME: trace copies introduced by live range splitting.
     MachineInstr *DefMI = LIS.getInstructionFromIndex(VNI->def);
-
     if (!LiveRangeEdit::allUsesAvailableAt(DefMI, VNI->def, UseIdx, LIS, MRI))
       return false;
   }

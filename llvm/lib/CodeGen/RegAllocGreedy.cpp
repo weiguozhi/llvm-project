@@ -126,7 +126,7 @@ static cl::opt<unsigned> MaxVRegForCSROpt(
     cl::desc("The maximum number of virtual registers in a function "
              "considered for CSR optimization, in times of number of "
              "allocatable registers."),
-    cl::init(30), cl::Hidden);
+    cl::init(25), cl::Hidden);
 
 static cl::opt<unsigned long> GrowRegionComplexityBudget(
     "grow-region-complexity-budget",
